@@ -414,10 +414,10 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 	var tieredTokens billingexpr.TokenParams
 	tieredBillingApplied := false
 	snap := relayInfo.TieredBillingSnapshot
-	// Providers normally estimate missing usage before settlement. Preserve the
-	// same prompt estimate when a fixed-price expression reaches us without it;
-	// its conditions must still run and may select a token-priced fallback.
-	if billingUsage == nil && snap != nil && billingexpr.UsesFixedPricingByHash(snap.ExprString, snap.ExprHash) {
+	// If no usage reached settlement, preserve the existing prompt estimate
+	// using the frozen direct price (or the fixed-price expression, which can
+	// still select a token-priced branch).
+	if billingUsage == nil && snap != nil && (snap.DirectPriceGroup != "" || billingexpr.UsesFixedPricingByHash(snap.ExprString, snap.ExprHash)) {
 		billingUsage = &dto.Usage{PromptTokens: summary.PromptTokens, CompletionTokens: summary.CompletionTokens, TotalTokens: summary.TotalTokens}
 	}
 	if billingUsage != nil {

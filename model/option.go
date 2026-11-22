@@ -10,6 +10,7 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/pkg/jsplugin"
 	"github.com/QuantumNous/new-api/setting"
+	"github.com/QuantumNous/new-api/setting/billing_setting"
 	"github.com/QuantumNous/new-api/setting/config"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/performance_setting"
@@ -33,6 +34,8 @@ func AllOption() ([]*Option, error) {
 func InitOptionMap() {
 	common.OptionMapRWMutex.Lock()
 	common.OptionMap = make(map[string]string)
+	billing_setting.PublishDirectGroupPricing(nil)
+	common.OptionMap[billing_setting.DirectGroupTokenPricingOption] = "{}"
 
 	// 添加原有的系统配置
 	common.OptionMap["FileUploadPermission"] = strconv.Itoa(common.FileUploadPermission)
@@ -267,6 +270,16 @@ func validateOptionValue(key string, value string) error {
 	if key == "ResendKeyConfigured" {
 		return common.NewMessage("Resend key configuration status is read-only")
 	}
+	if key == billing_setting.DirectGroupTokenPricingOption {
+		prices, err := billing_setting.ParseDirectGroupPricing(value)
+		if err != nil {
+			return err
+		}
+		if len(prices) != 0 && !billing_setting.DirectPricingUsesYuanQuota() {
+			return common.NewMessage("Direct pricing requires custom yuan display with a 1:1 quota rate")
+		}
+		return nil
+	}
 	if key == operation_setting.ToolPriceOptionKey {
 		return operation_setting.ValidateToolPricesJSON(value)
 	}
@@ -295,6 +308,9 @@ func UpdateOption(key string, value string) error {
 	}
 	if IsModelPricingOption(key) {
 		return UpdateModelPricingOptions(map[string]string{key: value})
+	}
+	if key == billing_setting.DirectGroupTokenPricingOption {
+		return UpdateOptionsBulk(map[string]string{key: value})
 	}
 	if err := validateOptionValue(key, value); err != nil {
 		return err
@@ -392,6 +408,13 @@ func updateOptionMap(key string, value string) (err error) {
 	}
 	common.OptionMapRWMutex.Lock()
 	defer common.OptionMapRWMutex.Unlock()
+	if key == billing_setting.DirectGroupTokenPricingOption {
+		prices, err := billing_setting.ParseDirectGroupPricing(value)
+		if err != nil {
+			return err
+		}
+		billing_setting.PublishDirectGroupPricing(prices)
+	}
 	common.OptionMap[key] = value
 
 	// 检查是否是模型配置 - 使用更规范的方式处理

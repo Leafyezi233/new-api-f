@@ -356,6 +356,10 @@ func InjectTieredBillingInfo(other *model.LogOther, relayInfo *relaycommon.Relay
 		return
 	}
 	other.SetPublic("billing_mode", "tiered_expr")
+	if snap.DirectPriceGroup != "" {
+		other.SetPublic("direct_price_group", snap.DirectPriceGroup)
+		other.SetPublic("direct_price_currency", "CNY")
+	}
 	other.SetPublic("expr_b64", base64.StdEncoding.EncodeToString([]byte(snap.ExprString)))
 	if result != nil {
 		if tokens := result.BillingTokens; tokens != nil && result.BillingUnit == billingexpr.BillingUnitToken {

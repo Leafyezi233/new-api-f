@@ -271,6 +271,7 @@ export type ModelSettings = {
 }
 
 export type BillingSettings = {
+  DirectGroupTokenPricing: string
   QuotaForNewUser: number
   QuotaForInviter: number
   QuotaForInvitee: number

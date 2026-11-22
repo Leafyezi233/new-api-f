@@ -75,6 +75,7 @@ import {
   getParamOverrideActionLabel,
   parseAuditLine,
   decodeBillingExprB64,
+  formatDirectYuanRate,
   getTieredBillingSummary,
   hasAnyCacheTokens,
   isViolationFeeLog,
@@ -175,7 +176,7 @@ function BillingBreakdown(props: {
   other: LogOtherData
   isAdmin: boolean
 }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { log, other, isAdmin } = props
   const isPerCall = isPerCallBilling(other.model_price)
   const isClaude = other.claude === true
@@ -186,13 +187,18 @@ function BillingBreakdown(props: {
 
   const rows: Array<{ label: string; value: string }> = []
   const priceOpts = { digitsLarge: 4, digitsSmall: 6, abbreviate: false }
-  const fmtPrice = (usd: number) => formatBillingCurrencyFromUSD(usd, priceOpts)
+  const fmtPrice = (price: number) =>
+    other.direct_price_group
+      ? formatDirectYuanRate(price, i18n.resolvedLanguage || i18n.language)
+      : formatBillingCurrencyFromUSD(price, priceOpts)
   const baseInputUSD = other.model_ratio != null ? other.model_ratio * 2.0 : 0
 
   if (isTieredExpr) {
     rows.push({
       label: t('Billing Mode'),
-      value: t('Dynamic Pricing'),
+      value: other.direct_price_group
+        ? t('Direct pricing')
+        : t('Dynamic Pricing'),
     })
     if (tieredSummary) {
       if (tieredSummary.tier.label) {
@@ -240,7 +246,11 @@ function BillingBreakdown(props: {
   const userGR = other.user_group_ratio
   const isUserGR = userGR != null && Number.isFinite(userGR) && userGR !== -1
   const effectiveGR = isUserGR ? userGR : other.group_ratio
-  if (effectiveGR != null && Number.isFinite(effectiveGR)) {
+  if (
+    !other.direct_price_group &&
+    effectiveGR != null &&
+    Number.isFinite(effectiveGR)
+  ) {
     rows.push({
       label: isUserGR ? t('User Exclusive Ratio') : t('Group Ratio'),
       value: `${formatRatio(effectiveGR)}x`,
@@ -1231,7 +1241,7 @@ export function DetailsDialog(props: DetailsDialogProps) {
         )}
 
         {/* Tiered pricing breakdown (when billing_mode is tiered_expr) */}
-        {isTieredBilling && other?.expr_b64 && (
+        {isTieredBilling && !other?.direct_price_group && other?.expr_b64 && (
           <DetailSection label={t('Dynamic Pricing')}>
             {other.image_count !== undefined && (
               <DetailRow

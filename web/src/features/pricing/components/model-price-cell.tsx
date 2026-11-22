@@ -30,11 +30,12 @@ import {
   getDynamicPricingSummary,
   isUnconfiguredTaskUsageModel,
 } from '../lib/dynamic-price'
-import { isTokenBasedModel } from '../lib/model-helpers'
+import { getDirectGroupPrices, isTokenBasedModel } from '../lib/model-helpers'
 import { withBasePricing } from '../lib/plugin-pricing'
 import { formatPrice, formatRequestPrice } from '../lib/price'
 import { taskUsageUnitLabel } from '../lib/task-price-display'
 import type { PricingModel, TokenUnit } from '../types'
+import { DirectGroupPrices } from './direct-group-prices'
 
 export type ModelPriceCellOptions = {
   tokenUnit?: TokenUnit
@@ -85,6 +86,11 @@ export function ModelPriceCell(props: {
       currency,
     ]
   )
+  const directPrices = getDirectGroupPrices(props.model, options.selectedGroup)
+  if (directPrices.length > 0) {
+    return <DirectGroupPrices prices={directPrices} />
+  }
+
   let metrics: Array<{ label: string; value: string }>
   const providerCaption = dynamic?.providerCount
     ? t('{{count}} providers', { count: dynamic.providerCount })

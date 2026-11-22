@@ -19,6 +19,12 @@ For commercial licensing, please contact support@quantumnous.com
 import { EXCLUDED_GROUPS, FILTER_ALL, QUOTA_TYPE_VALUES } from '../constants'
 import type { PricingModel } from '../types'
 
+export function getDirectGroupPrices(model: PricingModel, group?: string) {
+  return Object.entries(model.direct_group_prices ?? {}).filter(
+    ([name]) => !group || group === FILTER_ALL || name === group
+  )
+}
+
 // ----------------------------------------------------------------------------
 // Model Helper Utilities
 // ----------------------------------------------------------------------------

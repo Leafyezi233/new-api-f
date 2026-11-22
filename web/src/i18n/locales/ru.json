@@ -1,4 +1,8 @@
 {
+  "Direct pricing": "Прямое ценообразование",
+  "Multiplier pricing": "Тарификация по коэффициенту",
+  "Fixed groups only. Direct token prices do not use multipliers.": "Только фиксированные группы. Коэффициенты не применяются к прямым ценам токенов.",
+  "Enter a valid nonnegative price": "Введите допустимую неотрицательную цену",
   "translation": {
     "360": "360",
     "1000": "1000",

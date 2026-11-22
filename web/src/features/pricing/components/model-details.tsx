@@ -78,7 +78,11 @@ import {
   type DynamicPriceEntry,
 } from '../lib/dynamic-price'
 import { parseTags } from '../lib/filters'
-import { getAvailableGroups, isTokenBasedModel } from '../lib/model-helpers'
+import {
+  getAvailableGroups,
+  getDirectGroupPrices,
+  isTokenBasedModel,
+} from '../lib/model-helpers'
 import {
   withBasePricing,
   withOrdinaryPricing,
@@ -104,6 +108,7 @@ import type {
   PricingModel,
   TokenUnit,
 } from '../types'
+import { DirectGroupPrices } from './direct-group-prices'
 import { DynamicPricingBreakdown } from './dynamic-pricing-breakdown'
 import { ModelBillingModeBadge } from './model-billing-mode-badge'
 import { ModelDetailsApi } from './model-details-api'
@@ -1006,14 +1011,21 @@ const ORDINARY_PRICING_TAB = '__model__'
 
 function GroupPricingSection(props: GroupPricingSectionProps) {
   const { t } = useTranslation()
+  const directPrices = getDirectGroupPrices(props.model)
   const variants = props.model.billing_plugin_variants
   if (!variants?.length) {
-    return <ProviderGroupPricingSection {...props} />
+    return (
+      <>
+        {directPrices.length > 0 && <DirectGroupPrices prices={directPrices} />}
+        <ProviderGroupPricingSection {...props} excludeDirectGroups />
+      </>
+    )
   }
   const ordinary = props.model.ordinary_pricing
   return (
     <section>
       <SectionTitle>{t('Pricing by Group')}</SectionTitle>
+      {directPrices.length > 0 && <DirectGroupPrices prices={directPrices} />}
       <Tabs
         key={props.model.model_name}
         defaultValue={ordinary ? ORDINARY_PRICING_TAB : variants[0].plugin_key}
@@ -1052,6 +1064,7 @@ function GroupPricingSection(props: GroupPricingSectionProps) {
             <ProviderGroupPricingSection
               {...props}
               model={withOrdinaryPricing(props.model)}
+              excludeDirectGroups
               hideTitle
             />
           </TabsContent>
@@ -1077,14 +1090,22 @@ function GroupPricingSection(props: GroupPricingSectionProps) {
 }
 
 function ProviderGroupPricingSection(
-  props: GroupPricingSectionProps & { hideTitle?: boolean }
+  props: GroupPricingSectionProps & {
+    hideTitle?: boolean
+    excludeDirectGroups?: boolean
+  }
 ) {
   const { t, i18n } = useTranslation()
   const showRechargePrice = props.showRechargePrice ?? false
 
   const availableGroups = useMemo(
-    () => getAvailableGroups(props.model, props.usableGroup || {}),
-    [props.model, props.usableGroup]
+    () =>
+      getAvailableGroups(props.model, props.usableGroup || {}).filter(
+        (group) =>
+          !props.excludeDirectGroups ||
+          !props.model.direct_group_prices?.[group]
+      ),
+    [props.model, props.usableGroup, props.excludeDirectGroups]
   )
 
   const isTokenBased = isTokenBasedModel(props.model)
@@ -1112,6 +1133,14 @@ function ProviderGroupPricingSection(
     }
     return types
   }, [props.model, t])
+
+  if (
+    availableGroups.length === 0 &&
+    props.excludeDirectGroups &&
+    getDirectGroupPrices(props.model).length > 0
+  ) {
+    return null
+  }
 
   if (availableGroups.length === 0) {
     return (
@@ -1508,10 +1537,12 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
     baseModel.billing_expr,
     baseModel.billing_usage_schema
   )
+  const hasDirectPrices = getDirectGroupPrices(props.model).length > 0
   const showBasePrices =
-    !baseModel.billing_usage_schema ||
-    simpleTaskPricing ||
-    taskTiers.length === 0
+    !hasDirectPrices &&
+    (!baseModel.billing_usage_schema ||
+      simpleTaskPricing ||
+      taskTiers.length === 0)
 
   return (
     <div className='@container/details space-y-4'>
@@ -1548,7 +1579,7 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
                 showRechargePrice={showRechargePrice}
               />
             )}
-            {isDynamic && !simpleTaskPricing && (
+            {!hasDirectPrices && isDynamic && !simpleTaskPricing && (
               <DynamicPricingBreakdown
                 billingExpr={baseModel.billing_expr}
                 usageSchema={baseModel.billing_usage_schema}

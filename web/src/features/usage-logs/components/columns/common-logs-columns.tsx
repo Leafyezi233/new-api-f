@@ -58,6 +58,7 @@ import type { UsageLog } from '../../data/schema'
 import {
   formatModelName,
   decodeBillingExprB64,
+  formatDirectYuanRate,
   getTieredBillingSummary,
   hasAnyCacheTokens,
   parseLogOther,
@@ -94,6 +95,7 @@ function formatRatioCompact(ratio: number | undefined): string {
 }
 
 function getGroupRatio(other: LogOtherData | null): number | null {
+  if (other?.direct_price_group) return null
   const userGroupRatio = other?.user_group_ratio
   if (
     userGroupRatio != null &&
@@ -175,7 +177,9 @@ function buildTypeDetailSegments(
   const formatPrice = (price: number) =>
     `${formatBillingCurrencyFromUSD(price, priceOpts)}/M`
   const formatPriceCompact = (price: number) =>
-    formatBillingCurrencyFromUSD(price, priceOpts)
+    other.direct_price_group
+      ? formatDirectYuanRate(price, language)
+      : formatBillingCurrencyFromUSD(price, priceOpts)
   const formatPriceList = (prices: string[], showUnit: boolean) => {
     const text = prices.join(' / ')
     return showUnit ? `${text}/M` : text
@@ -221,7 +225,9 @@ function buildTypeDetailSegments(
         .filter((entry) => ['inputPrice', 'outputPrice'].includes(entry.field))
         .map((entry) => formatPriceCompact(entry.price))
       if (baseEntries.length > 0) {
-        const tierLabel = tieredSummary.tier.label || t('Default')
+        const tierLabel = other.direct_price_group
+          ? t('Direct pricing')
+          : tieredSummary.tier.label || t('Default')
         segments.push({
           text: `${tierLabel} · ${formatPriceList(baseEntries, true)}`,
         })

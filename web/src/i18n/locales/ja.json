@@ -1,4 +1,8 @@
 {
+  "Direct pricing": "直接価格設定",
+  "Multiplier pricing": "倍率による価格設定",
+  "Fixed groups only. Direct token prices do not use multipliers.": "固定グループのみ。直接設定したトークン価格に倍率は適用されません。",
+  "Enter a valid nonnegative price": "有効な非負の価格を入力してください",
   "translation": {
     "360": "360",
     "1000": "1000",

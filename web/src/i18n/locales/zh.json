@@ -1,4 +1,8 @@
 {
+  "Direct pricing": "直接定价",
+  "Multiplier pricing": "倍率计价",
+  "Fixed groups only. Direct token prices do not use multipliers.": "仅适用于固定分组。直接定价的 Token 费用不乘倍率。",
+  "Enter a valid nonnegative price": "请输入有效的非负单价",
   "translation": {
     "360": "360",
     "1000": "1000",

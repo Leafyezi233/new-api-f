@@ -1,4 +1,8 @@
 {
+  "Direct pricing": "Tarification directe",
+  "Multiplier pricing": "Tarification par multiplicateur",
+  "Fixed groups only. Direct token prices do not use multipliers.": "Groupes fixes uniquement. Les prix directs des jetons ne sont pas multipliés.",
+  "Enter a valid nonnegative price": "Saisissez un prix positif ou nul valide",
   "translation": {
     "360": "360",
     "1000": "1000",

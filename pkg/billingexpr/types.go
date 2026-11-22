@@ -69,6 +69,7 @@ type BillingSnapshot struct {
 	ExprString                string         `json:"expr_string"`
 	ExprHash                  string         `json:"expr_hash"`
 	GroupRatio                float64        `json:"group_ratio"`
+	DirectPriceGroup          string         `json:"direct_price_group,omitempty"`
 	EstimatedPromptTokens     int            `json:"estimated_prompt_tokens"`
 	EstimatedCompletionTokens int            `json:"estimated_completion_tokens"`
 	PreConsumeMultiplier      float64        `json:"pre_consume_multiplier,omitempty"` // Reservation only; zero in older snapshots means 1.

@@ -1,4 +1,8 @@
 {
+  "Direct pricing": "Direct pricing",
+  "Multiplier pricing": "Multiplier pricing",
+  "Fixed groups only. Direct token prices do not use multipliers.": "Fixed groups only. Direct token prices do not use multipliers.",
+  "Enter a valid nonnegative price": "Enter a valid nonnegative price",
   "translation": {
     "360": "360",
     "1000": "1000",

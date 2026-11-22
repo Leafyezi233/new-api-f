@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/QuantumNous/new-api/common"
@@ -184,6 +185,12 @@ func refreshTieredBillingGroup(relayInfo *relaycommon.RelayInfo) (*billingexpr.B
 		return nil, nil
 	}
 
+	if snap.DirectPriceGroup != "" {
+		if snap.DirectPriceGroup != relayInfo.UsingGroup {
+			return nil, fmt.Errorf("direct pricing group does not match the selected group")
+		}
+		return snap, nil
+	}
 	groupRatio := relayInfo.PriceData.GroupRatioInfo.GroupRatio
 	if snap.GroupRatio == groupRatio {
 		return snap, nil

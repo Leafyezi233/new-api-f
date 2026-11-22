@@ -10,6 +10,7 @@ import (
 	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/QuantumNous/new-api/service"
@@ -22,6 +23,70 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestDirectGroupPriceLocksActualPriceAndIgnoresGroupMultiplier(t *testing.T) {
+	saved := map[string]string{}
+	require.NoError(t, config.GlobalConfig.SaveToDB(func(key, value string) error {
+		saved[key] = value
+		return nil
+	}))
+	t.Cleanup(func() {
+		billing_setting.PublishDirectGroupPricing(nil)
+		require.NoError(t, config.GlobalConfig.LoadFromDB(saved))
+	})
+	require.NoError(t, config.GlobalConfig.LoadFromDB(map[string]string{
+		"general_setting.quota_display_type":            "CUSTOM",
+		"general_setting.custom_currency_symbol":        "¥",
+		"general_setting.custom_currency_exchange_rate": "1",
+		"group_ratio_setting.group_ratio":               `{"default":0,"expanded":3}`,
+	}))
+	require.True(t, billing_setting.DirectPricingUsesYuanQuota())
+	_, err := billing_setting.ParseDirectGroupPricing(`{"default":{"GPT-6.1-Sol":{"mode":"direct","input":0,"output":1,"cache_read":0}}}`)
+	require.Error(t, err, "missing cache_write must not turn into an explicit free rate")
+	prices, err := billing_setting.ParseDirectGroupPricing(`{
+		"default":{"GPT-6.1-Sol":{"mode":"direct","input":0.49,"output":0.95,"cache_read":0,"cache_write":0.59}},
+		"expanded":{"GPT-6.1-Sol":{"mode":"direct","input":1,"output":2,"cache_read":0,"cache_write":0.5}}
+	}`)
+	require.NoError(t, err)
+	billing_setting.PublishDirectGroupPricing(prices)
+
+	requests := []struct {
+		group           string
+		reserve, settle int
+		ratio           float64
+		info            *relaycommon.RelayInfo
+	}{
+		{group: "default", reserve: 24500, settle: 34000, ratio: 0},
+		{group: "expanded", reserve: 50000, settle: 70000, ratio: 3},
+	}
+	for i := range requests {
+		req := &requests[i]
+		ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+		ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+		req.info = &relaycommon.RelayInfo{
+			OriginModelName: "GPT-6.1-Sol", TokenGroup: req.group, UsingGroup: req.group,
+			RelayMode: relayconstant.RelayModeChatCompletions, RelayFormat: types.RelayFormatOpenAI,
+			BillingRequestInput: &billingexpr.RequestInput{},
+		}
+		price, err := ModelPriceHelper(ctx, req.info, 100_000, &types.TokenCountMeta{})
+		require.NoError(t, err)
+		assert.Equal(t, req.reserve, price.QuotaToPreConsume)
+		assert.Equal(t, req.ratio, price.GroupRatioInfo.GroupRatio, "legacy add-on multiplier stays separate")
+	}
+
+	billing_setting.PublishDirectGroupPricing(nil) // Represents a price edit while both responses are in flight.
+	for _, req := range requests {
+		usage := &dto.Usage{PromptTokens: 150_000, CompletionTokens: 20_000, PromptTokensDetails: dto.InputTokenDetails{CachedTokens: 50_000}}
+		snap := req.info.TieredBillingSnapshot
+		tokens := service.BuildTieredTokenParams(usage, false, billingexpr.UsedVarsByHash(snap.ExprString, snap.ExprHash))
+		ok, quota, _ := service.TryTieredSettle(req.info, tokens)
+		require.True(t, ok)
+		assert.Equal(t, req.settle, quota, "explicitly free cached input is not charged as ordinary input")
+	}
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	requests[0].info.UsingGroup = "expanded"
+	require.NotNil(t, service.PrepareTieredBillingForSelectedGroup(ctx, requests[0].info), "a direct price cannot be reused for a different group")
+}
 
 func TestModelPriceHelperTieredUsesPreloadedRequestInput(t *testing.T) {
 	gin.SetMode(gin.TestMode)

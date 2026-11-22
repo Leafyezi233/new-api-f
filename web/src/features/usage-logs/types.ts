@@ -306,6 +306,7 @@ export interface LogOtherData {
   // expression; the matched tier and request-rule traces come from the actual
   // settlement run.
   billing_mode?: string
+  direct_price_group?: string
   billing_unit?: 'token' | 'request'
   fixed_price?: number
   image_count?: number

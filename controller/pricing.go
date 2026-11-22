@@ -2,10 +2,13 @@ package controller
 
 import (
 	"maps"
+	"slices"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/setting/billing_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 
 	"github.com/gin-gonic/gin"
@@ -64,15 +67,38 @@ func GetPricing(c *gin.Context) {
 		}
 	}
 
+	directPrices := make(map[string]map[string]billing_setting.DirectTokenPrices)
+	if billing_setting.DirectPricingUsesYuanQuota() {
+		for _, item := range pricing {
+			for _, group := range item.EnableGroup {
+				if _, allowed := usableGroup[group]; !allowed {
+					continue
+				}
+				if price, found := billing_setting.GetDirectTokenPrices(group, item.ModelName); found {
+					textEndpoint := slices.Contains(item.SupportedEndpointTypes, constant.EndpointTypeOpenAI) ||
+						slices.Contains(item.SupportedEndpointTypes, constant.EndpointTypeOpenAIResponse) ||
+						slices.Contains(item.SupportedEndpointTypes, constant.EndpointTypeAnthropic)
+					if !textEndpoint || !billing_setting.AllowsDirectTokenPrice(item.QuotaType == 1, item.BillingExpr) {
+						break
+					}
+					if directPrices[item.ModelName] == nil {
+						directPrices[item.ModelName] = make(map[string]billing_setting.DirectTokenPrices)
+					}
+					directPrices[item.ModelName][group] = price
+				}
+			}
+		}
+	}
 	c.JSON(200, gin.H{
-		"success":            true,
-		"data":               pricing,
-		"vendors":            model.GetVendors(),
-		"group_ratio":        groupRatio,
-		"usable_group":       usableGroup,
-		"supported_endpoint": model.GetSupportedEndpointMap(),
-		"auto_groups":        service.GetUserAutoGroup(group),
-		"pricing_version":    "a42d372ccf0b5dd13ecf71203521f9d2",
+		"success":             true,
+		"data":                pricing,
+		"direct_group_prices": directPrices,
+		"vendors":             model.GetVendors(),
+		"group_ratio":         groupRatio,
+		"usable_group":        usableGroup,
+		"supported_endpoint":  model.GetSupportedEndpointMap(),
+		"auto_groups":         service.GetUserAutoGroup(group),
+		"pricing_version":     "a42d372ccf0b5dd13ecf71203521f9d2",
 	})
 }
 

@@ -148,6 +148,20 @@ test('keeps log details open when the parent refreshes with unchanged data', asy
   expect(screen.getByRole('dialog')).toBeVisible()
 })
 
+test('direct token rates stay in yuan and do not show a text multiplier', () => {
+  const preview = renderPreview({
+    billing_mode: 'tiered_expr',
+    direct_price_group: 'vip',
+    group_ratio: 3,
+    matched_tier: 'direct',
+    expr_b64: btoa(
+      'tier("direct", p * 0.49 + c * 0.95 + cr * 0 + cc * 0.59 + cc1h * 0.59 + cc12h * 0.59)'
+    ),
+  })
+  expect(preview.textContent).toContain('Direct pricing · ¥0.49 / ¥0.95/M')
+  expect(preview.textContent).not.toContain('3x')
+})
+
 test.each([
   {
     name: 'fixed expression zero price',

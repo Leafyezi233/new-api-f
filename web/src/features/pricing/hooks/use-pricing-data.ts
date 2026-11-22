@@ -60,6 +60,7 @@ export function usePricingData(enabled = true) {
         vendor_icon: vendor?.icon,
         vendor_description: vendor?.description,
         group_ratio: data.group_ratio,
+        direct_group_prices: data.direct_group_prices?.[model.model_name],
       }
     })
   }, [data])

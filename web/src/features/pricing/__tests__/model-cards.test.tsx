@@ -88,6 +88,36 @@ afterEach(() => {
 })
 
 describe('model cards', () => {
+  it('shows the selected direct price without a multiplier or another group’s price', () => {
+    useSystemConfigStore.getState().setConfig({
+      currency: { ...DEFAULT_CURRENCY_CONFIG, quotaDisplayType: 'CNY' },
+    })
+    const model = pricingModel({
+      direct_group_prices: {
+        default: {
+          input: 0.49,
+          output: 0.95,
+          cache_read: 0.016,
+          cache_write: 0.59,
+        },
+        premium: { input: 1, output: 2, cache_read: 0, cache_write: 0.5 },
+      },
+    })
+    render(
+      <ModelCard
+        model={model}
+        onClick={vi.fn()}
+        selectedGroup='premium'
+        tokenUnit='K'
+      />
+    )
+    const prices = screen.getByLabelText('Direct pricing')
+    expect(prices).toHaveTextContent('1M')
+    expect(prices).toHaveTextContent('Output: ¥2')
+    expect(prices).toHaveTextContent('Cache: ¥0')
+    expect(prices).not.toHaveTextContent('¥6')
+    expect(prices).not.toHaveTextContent('¥0.95')
+  })
   it('shows separate generic and image cache prices including a free image cache', () => {
     render(
       <CachedPriceCell

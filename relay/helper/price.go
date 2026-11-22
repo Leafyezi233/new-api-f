@@ -3,6 +3,7 @@ package helper
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
@@ -12,6 +13,7 @@ import (
 	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	"github.com/QuantumNous/new-api/pkg/jsplugin"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/relayconvert/reasoning"
 	"github.com/QuantumNous/new-api/relaykit/types"
@@ -73,9 +75,32 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 
 	groupRatioInfo := HandleGroupRatio(c, info)
 
-	// Check if this model uses tiered_expr billing
+	if c.Request != nil && c.Request.Method == http.MethodPost && info.TokenGroup != "auto" && info.UsingGroup != "auto" {
+		textEndpoint := info.RelayFormat == types.RelayFormatClaude ||
+			info.RelayFormat == types.RelayFormatOpenAIResponses ||
+			(info.RelayFormat == types.RelayFormatOpenAI && info.RelayMode == relayconstant.RelayModeChatCompletions)
+		if textEndpoint {
+			if prices, ok := billing_setting.GetDirectTokenPrices(info.UsingGroup, info.OriginModelName); ok {
+				var existingExpr string
+				if billing_setting.GetBillingMode(billingModelName) == billing_setting.BillingModeTieredExpr {
+					existingExpr, _ = billing_setting.GetBillingExpr(billingModelName)
+				}
+				if billing_setting.AllowsDirectTokenPrice(usePrice, existingExpr) {
+					if !billing_setting.DirectPricingUsesYuanQuota() {
+						return hosttypes.PriceData{}, modelPriceNotConfiguredError(c, info.OriginModelName, info.UserId)
+					}
+					return modelPriceHelperTiered(c, info, info.OriginModelName, promptTokens, groupRatioInfo, prices.Expression(), info.UsingGroup)
+				}
+			}
+		}
+	}
+
 	if billing_setting.GetBillingMode(billingModelName) == billing_setting.BillingModeTieredExpr {
-		return modelPriceHelperTiered(c, info, billingModelName, promptTokens, groupRatioInfo)
+		expr, ok := billing_setting.GetBillingExpr(billingModelName)
+		if !ok {
+			return hosttypes.PriceData{}, fmt.Errorf("model %s is configured as tiered_expr but has no billing expression", billingModelName)
+		}
+		return modelPriceHelperTiered(c, info, billingModelName, promptTokens, groupRatioInfo, expr, "")
 	}
 
 	var preConsumedQuota int
@@ -341,10 +366,11 @@ func resolveBillingModelName(origin string) string {
 	return matched
 }
 
-func modelPriceHelperTiered(c *gin.Context, info *relaycommon.RelayInfo, billingModelName string, promptTokens int, groupRatioInfo hosttypes.GroupRatioInfo) (hosttypes.PriceData, error) {
-	exprStr, ok := billing_setting.GetBillingExpr(billingModelName)
-	if !ok {
-		return hosttypes.PriceData{}, fmt.Errorf("model %s is configured as tiered_expr but has no billing expression", billingModelName)
+func modelPriceHelperTiered(c *gin.Context, info *relaycommon.RelayInfo, billingModelName string, promptTokens int, groupRatioInfo hosttypes.GroupRatioInfo, exprStr string, directPriceGroup string) (hosttypes.PriceData, error) {
+	tokenPriceRatio := groupRatioInfo.GroupRatio
+	if directPriceGroup != "" {
+		// The group ratio is still carried in PriceData for existing tool fees.
+		tokenPriceRatio = 1
 	}
 	exprHash := billingexpr.ExprHashString(exprStr)
 	usedVars := billingexpr.UsedVarsByHash(exprStr, exprHash)
@@ -409,14 +435,14 @@ func modelPriceHelperTiered(c *gin.Context, info *relaycommon.RelayInfo, billing
 	if trace.BillingUnit != billingexpr.BillingUnitRequest {
 		quotaBeforeGroup *= preConsumeMultiplier
 	}
-	preConsumedQuota, err := billingexpr.QuotaRoundStrict(quotaBeforeGroup * groupRatioInfo.GroupRatio)
+	preConsumedQuota, err := billingexpr.QuotaRoundStrict(quotaBeforeGroup * tokenPriceRatio)
 	if err != nil {
 		return hosttypes.PriceData{}, err
 	}
 
 	freeModel := false
 	if !operation_setting.GetQuotaSetting().EnableFreeModelPreConsume {
-		if groupRatioInfo.GroupRatio == 0 {
+		if tokenPriceRatio == 0 {
 			preConsumedQuota = 0
 			freeModel = true
 		}
@@ -428,7 +454,8 @@ func modelPriceHelperTiered(c *gin.Context, info *relaycommon.RelayInfo, billing
 		ModelName:                 billingModelName,
 		ExprString:                exprStr,
 		ExprHash:                  exprHash,
-		GroupRatio:                groupRatioInfo.GroupRatio,
+		GroupRatio:                tokenPriceRatio,
+		DirectPriceGroup:          directPriceGroup,
 		EstimatedPromptTokens:     promptTokens,
 		EstimatedCompletionTokens: 0,
 		PreConsumeMultiplier:      preConsumeMultiplier,

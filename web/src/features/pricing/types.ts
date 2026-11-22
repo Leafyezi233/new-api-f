@@ -55,7 +55,15 @@ export type BillingPluginVariant = {
   billing_usage_examples?: BillingUsageExample[]
 }
 
+export type DirectTokenPrices = {
+  input: number
+  output: number
+  cache_read: number
+  cache_write: number
+}
+
 export type PricingModel = {
+  direct_group_prices?: Record<string, DirectTokenPrices>
   billing_plugin_variants?: BillingPluginVariant[]
   // Requests outside the plugin variants still pay the model-level price.
   ordinary_pricing?: boolean
@@ -127,6 +135,7 @@ export type PricingData = {
   success: boolean
   message?: string
   data: PricingModel[]
+  direct_group_prices?: Record<string, Record<string, DirectTokenPrices>>
   vendors: PricingVendor[]
   group_ratio: Record<string, number>
   usable_group: Record<string, { desc: string; ratio: number }>

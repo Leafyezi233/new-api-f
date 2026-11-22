@@ -547,6 +547,14 @@ quota = exprOutput / 1,000,000 * QuotaPerUnit * groupRatio
 
 This matches the per-call billing pattern: `quota = modelPrice * QuotaPerUnit * groupRatio`.
 
+### Fixed-group direct token pricing
+
+The optional `DirectGroupTokenPricing` setting selects a price by fixed token group and exact public model name. In System Settings → Billing → Group Pricing, choose direct pricing and provide all four nonnegative rates (zero means free): uncached input, output, cache read and cache write. Rates are **yuan per million tokens**. The site must already use custom ¥/￥ currency at a 1:1 quota display rate; this option never converts a site's existing balances.
+
+The gateway locks the rates when an eligible Chat Completions, Responses or Messages request starts. The generated expression uses the existing token normalization and settlement engine with a token multiplier of one; the regular group multiplier still applies to existing tool surcharges. All cache write durations share the direct write rate. Auto groups, models with existing fixed-request or mixed pricing, non-text endpoints, and video/task billing keep their normal billing paths.
+
+Use multiplier mode for a row, or set the option to `{}` to disable all overrides. This affects new requests only; an in-flight request keeps its snapshot. No schema change is required. The market response only includes direct prices for a visible model's enabled and authorized groups.
+
 ### Expression Versioning
 
 Expressions can carry a version prefix: `v1:tier(...)`. No prefix = v1.

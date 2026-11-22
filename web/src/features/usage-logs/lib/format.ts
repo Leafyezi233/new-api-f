@@ -24,6 +24,7 @@ import {
   splitBillingExprAndRequestRules,
   type ParsedTier,
 } from '@/features/pricing/lib/billing-expr'
+import { toIntlLocale } from '@/i18n/languages'
 import { translateServerText } from '@/lib/server-error-message'
 
 import type { UsageLog } from '../data/schema'
@@ -31,6 +32,17 @@ import type { LogOtherData } from '../types'
 import { buildQuotaAuditOperation } from './quota-audit-operation'
 
 export { normalizeTierLabel }
+
+// The quote is already in yuan, even if the site display has since changed.
+export function formatDirectYuanRate(
+  amount: number,
+  language?: string
+): string {
+  const value = new Intl.NumberFormat(toIntlLocale(language), {
+    maximumFractionDigits: 6,
+  }).format(amount)
+  return `¥${value}`
+}
 
 const PARAM_OVERRIDE_ACTION_MAP: Record<string, string> = {
   set: 'Set',

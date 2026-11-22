@@ -278,7 +278,8 @@ export function CommonLogMobileCard<TData>(props: {
               </div>
             )
           })}
-          {groupRatio != null &&
+          {!other?.direct_price_group &&
+            groupRatio != null &&
             groupRatio !== 1 &&
             Number.isFinite(groupRatio) &&
             props.cells.has('token_name') && (

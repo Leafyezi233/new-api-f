@@ -1,4 +1,8 @@
 {
+  "Direct pricing": "Định giá trực tiếp",
+  "Multiplier pricing": "Định giá theo hệ số",
+  "Fixed groups only. Direct token prices do not use multipliers.": "Chỉ áp dụng cho nhóm cố định. Giá token trực tiếp không nhân hệ số.",
+  "Enter a valid nonnegative price": "Nhập đơn giá không âm hợp lệ",
   "translation": {
     "360": "360",
     "1000": "1000",

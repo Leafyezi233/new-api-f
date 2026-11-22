@@ -28,10 +28,11 @@ import {
   getDynamicPricingSummary,
   isUnconfiguredTaskUsageModel,
 } from '../lib/dynamic-price'
-import { isTokenBasedModel } from '../lib/model-helpers'
+import { getDirectGroupPrices, isTokenBasedModel } from '../lib/model-helpers'
 import { withBasePricing } from '../lib/plugin-pricing'
 import { formatPrice, stripTrailingZeros } from '../lib/price'
 import type { PricingModel } from '../types'
+import { DirectGroupPrices } from './direct-group-prices'
 import type { ModelPriceCellOptions } from './model-price-cell'
 
 export function CachedPriceCell(props: {
@@ -75,6 +76,11 @@ export function CachedPriceCell(props: {
       currency,
     ]
   )
+
+  const directPrices = getDirectGroupPrices(props.model, selectedGroup)
+  if (directPrices.length > 0) {
+    return <DirectGroupPrices prices={directPrices} cacheOnly />
+  }
 
   if (dynamicSummary) {
     if (dynamicSummary.isSpecialExpression) {
